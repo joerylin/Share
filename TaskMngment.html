@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>待辦清單小工具 - 艾森豪矩陣</title>
+  <title>任務管理小工具 - 艾森豪矩陣</title>
   <style>
     * {
       box-sizing: border-box;
@@ -237,7 +238,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>📊 待辦清單小工具 艾森豪矩陣）</h1>
+    <h1>📊 任務管理小工具（艾森豪矩陣）</h1>
 
     <!-- 頂部工具列 -->
     <div class="toolbar">
@@ -349,18 +350,18 @@
         <h2>⚙️ 系統設定</h2>
         
         <label>緊急天數門檻（天數）</label>
-        <input type="number" id="urgentThreshold" min="1" class="threshold-input" placeholder="用於艾森豪矩陣分類" />
+        <input type="number" id="urgentThreshold" min="1" class="threshold-input" placeholder="用於艾森豪矩陣分類" value="7" />
 
         <div class="settings-option">
           <label>
-            <input type="checkbox" id="enableUrgentHighlight" />
+            <input type="checkbox" id="enableUrgentHighlight" checked />
             啟用緊急底色提醒（所有象限）
           </label>
         </div>
         
         <div id="highlightSetting">
           <label>底色提醒天數（天數）</label>
-          <input type="number" id="highlightThreshold" min="1" class="threshold-input" placeholder="僅底色使用" />
+          <input type="number" id="highlightThreshold" min="1" class="threshold-input" placeholder="僅底色使用" value="5" />
         </div>
 
         <div class="modal-actions">
@@ -372,13 +373,13 @@
   </div>
 
   <script>
-    // 設定：分離兩個門檻
-    let settings = JSON.parse(localStorage.getItem('taskMgrSettings')) || {
+    // 設定：分離兩個門檻（使用記憶體儲存，不使用 localStorage）
+    let settings = {
       urgentThreshold: 7,      // 用於艾森豪矩陣分類（緊急/不緊急）
       enableUrgentHighlight: true,
       highlightThreshold: 5    // 僅用於底色提醒
     };
-    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+    let tasks = [];
 
     // DOM
     const openModalBtn = document.getElementById('openModalBtn');
@@ -480,6 +481,32 @@
     renderAll();
 
     // --- 功能函式 ---
+    // 計算剩餘天數的函式（動態計算）
+    function calculateDaysRemaining(dueDateStr) {
+      const now = new Date();
+      const dueDate = new Date(dueDateStr);
+      const diffTime = dueDate - now;
+      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    // 根據當前設定重新分類任務
+    function reclasifyTasks() {
+      tasks = tasks.map(task => {
+        const diffDays = calculateDaysRemaining(task.dueDate);
+        const isImportant = task.importance >= 4;
+        const isUrgent = diffDays <= settings.urgentThreshold;
+        const quadrant = isImportant ? (isUrgent ? 1 : 2) : (isUrgent ? 3 : 4);
+        
+        return {
+          ...task,
+          diffDays,
+          isUrgent,
+          isImportant,
+          quadrant
+        };
+      });
+    }
+
     function openTaskModal(editIndex = -1) {
       modalTitle.textContent = editIndex === -1 ? '➕ 新增任務' : '✏️ 編輯任務';
       editIndexInput.value = editIndex;
@@ -515,11 +542,10 @@
         return;
       }
 
-      const now = new Date();
-      const diffTime = dueDate - now;
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      // 動態計算剩餘天數
+      const diffDays = calculateDaysRemaining(dueDate.toISOString().split('T')[0]);
       
-      // 🔥 關鍵：使用 urgentThreshold 來分類艾森豪矩陣
+      // 使用 urgentThreshold 來分類艾森豪矩陣
       const isImportant = importance >= 4;
       const isUrgent = diffDays <= settings.urgentThreshold;
       const quadrant = isImportant ? (isUrgent ? 1 : 2) : (isUrgent ? 3 : 4);
@@ -555,7 +581,6 @@
       });
 
       tasks = [...activeTasks, ...completedTasks];
-      localStorage.setItem('tasks', JSON.stringify(tasks));
       taskModal.style.display = 'none';
       renderAll();
     }
@@ -570,7 +595,10 @@
         enableUrgentHighlight: newHighlightEnabled, 
         highlightThreshold: newHighlight 
       };
-      localStorage.setItem('taskMgrSettings', JSON.stringify(settings));
+      
+      // 重新分類所有任務
+      reclasifyTasks();
+      
       settingsModal.style.display = 'none';
       renderAll();
     }
@@ -615,6 +643,10 @@
             throw new Error('無效格式');
           }
 
+          // 更新設定
+          settings = importedSettings;
+          
+          // 動態計算所有任務的剩餘天數並重新分類
           const validTasks = importedTasks.map(t => {
             if (!t.name || !t.dueDate || typeof t.importance !== 'number') {
               throw new Error('任務格式不正確');
@@ -622,18 +654,17 @@
             const due = new Date(t.dueDate);
             if (isNaN(due.getTime())) throw new Error('無效日期');
 
-            const now = new Date();
-            const diff = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
+            // 動態計算剩餘天數（關鍵修正）
+            const diffDays = calculateDaysRemaining(t.dueDate);
             const isImportant = t.importance >= 4;
-            // 🔥 使用 importedSettings.urgentThreshold
-            const isUrgent = diff <= importedSettings.urgentThreshold;
+            const isUrgent = diffDays <= settings.urgentThreshold;
             const quadrant = isImportant ? (isUrgent ? 1 : 2) : (isUrgent ? 3 : 4);
 
             return {
               ...t,
               progress: t.progress || 0,
               completedAt: (t.progress === 100 && t.completedAt) ? t.completedAt : null,
-              diffDays: diff,
+              diffDays: diffDays,
               isUrgent,
               isImportant,
               quadrant
@@ -641,9 +672,6 @@
           });
 
           tasks = validTasks;
-          settings = importedSettings;
-          localStorage.setItem('tasks', JSON.stringify(tasks));
-          localStorage.setItem('taskMgrSettings', JSON.stringify(settings));
           updateSettingsUI();
           renderAll();
           alert('✅ 匯入成功！已載入 ' + tasks.length + ' 個任務。');
@@ -663,7 +691,6 @@
     function deleteTask(index) {
       if (confirm('確定要刪除此任務嗎？')) {
         tasks.splice(index, 1);
-        localStorage.setItem('tasks', JSON.stringify(tasks));
         renderAll();
       }
     }
@@ -673,12 +700,11 @@
       if (confirm('確定要標記此任務為已完成嗎？')) {
         tasks[index].progress = 100;
         tasks[index].completedAt = new Date().toISOString().split('T')[0];
-        localStorage.setItem('tasks', JSON.stringify(tasks));
         renderAll();
       }
     }
 
-    // 🔥 使用 highlightThreshold 來決定底色
+    // 使用 highlightThreshold 來決定底色
     function getUrgentColor(quadrant, diffDays) {
       if (!settings.enableUrgentHighlight || diffDays > settings.highlightThreshold || diffDays < 0) {
         return '';
@@ -698,6 +724,25 @@
     }
 
     function renderAll() {
+      // 重新計算所有任務的剩餘天數（關鍵修正）
+      tasks = tasks.map(task => {
+        if (task.progress < 100) {
+          const diffDays = calculateDaysRemaining(task.dueDate);
+          const isImportant = task.importance >= 4;
+          const isUrgent = diffDays <= settings.urgentThreshold;
+          const quadrant = isImportant ? (isUrgent ? 1 : 2) : (isUrgent ? 3 : 4);
+          
+          return {
+            ...task,
+            diffDays,
+            isUrgent,
+            isImportant,
+            quadrant
+          };
+        }
+        return task;
+      });
+
       // 清空
       document.getElementById('q1-tasks').innerHTML = '';
       document.getElementById('q2-tasks').innerHTML = '';
@@ -784,6 +829,9 @@
     window.editTask = editTask;
     window.deleteTask = deleteTask;
     window.markAsCompleted = markAsCompleted;
+
+    // 自動重新渲染以確保剩餘天數正確
+    setInterval(renderAll, 60000); // 每分鐘重新計算一次
   </script>
 </body>
 </html>
