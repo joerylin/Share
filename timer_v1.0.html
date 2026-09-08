@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>倒數計時器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 30px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        .timer-display {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            margin: 0 auto 30px;
+        }
+
+        .timer-svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .timer-circle-bg {
+            fill: none;
+            stroke: #e0e0e0;
+            stroke-width: 20;
+        }
+
+        .timer-circle-progress {
+            fill: none;
+            stroke: #FFA500;
+            stroke-width: 20;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.1s linear, stroke 0.3s ease;
+        }
+
+        .timer-circle-progress.warning {
+            stroke: #FF0000;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                stroke-width: 20;
+                filter: drop-shadow(0 0 0 rgba(255, 0, 0, 0));
+            }
+            50% {
+                stroke-width: 24;
+                filter: drop-shadow(0 0 10px rgba(255, 0, 0, 0.5));
+            }
+        }
+
+        .timer-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            font-weight: bold;
+            color: #333;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .timer-text.pulse {
+            animation: numberPulse 0.9s ease;
+        }
+
+        @keyframes numberPulse {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+            }
+            30% {
+                transform: translate(-50%, -50%) scale(2);
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            font-size: 18px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .btn-start {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-start:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .btn-pause {
+            background: #FF9800;
+            color: white;
+        }
+
+        .btn-pause:hover {
+            background: #F57C00;
+            transform: translateY(-2px);
+        }
+
+        .btn-reset {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-reset:hover {
+            background: #da190b;
+            transform: translateY(-2px);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .input-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .input-wrapper label {
+            margin-bottom: 5px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .input-wrapper input {
+            width: 80px;
+            padding: 10px;
+            font-size: 20px;
+            text-align: center;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+        }
+
+        .settings {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 20px;
+        }
+
+        .settings h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .setting-row label {
+            color: #555;
+            font-size: 14px;
+        }
+
+        .setting-row input[type="color"] {
+            width: 60px;
+            height: 40px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .setting-row input[type="number"] {
+            width: 80px;
+            padding: 8px;
+            font-size: 16px;
+            text-align: center;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px;
+            }
+
+            .timer-display {
+                width: 250px;
+                height: 250px;
+            }
+
+            .timer-text {
+                font-size: 40px;
+            }
+
+            .btn {
+                padding: 12px 20px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⏱️ 倒數計時器</h1>
+
+        <div class="timer-display">
+            <svg class="timer-svg" viewBox="0 0 200 200">
+                <circle class="timer-circle-bg" cx="100" cy="100" r="80"/>
+                <circle class="timer-circle-progress" cx="100" cy="100" r="80" 
+                        stroke-dasharray="502.4" stroke-dashoffset="0"/>
+            </svg>
+            <div class="timer-text" id="timerText">00:00</div>
+        </div>
+
+        <div class="input-group">
+            <div class="input-wrapper">
+                <label>分鐘</label>
+                <input type="number" id="minutesInput" min="0" max="99" value="1">
+            </div>
+            <div class="input-wrapper">
+                <label>秒鐘</label>
+                <input type="number" id="secondsInput" min="0" max="59" value="0">
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-start" id="startBtn">開始</button>
+            <button class="btn btn-pause" id="pauseBtn">暫停</button>
+            <button class="btn btn-reset" id="resetBtn">重置</button>
+        </div>
+
+        <div class="settings">
+            <h3>⚙️ 設定</h3>
+            
+            <div class="setting-row">
+                <label>一般倒數顏色:</label>
+                <input type="color" id="normalColor" value="#FFA500">
+            </div>
+
+            <div class="setting-row">
+                <label>最後 N 秒顏色:</label>
+                <input type="color" id="warningColor" value="#FF0000">
+            </div>
+
+            <div class="setting-row">
+                <label>最後 N 秒:</label>
+                <input type="number" id="warningSeconds" min="1" max="60" value="10">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let totalTime = 60;
+        let remainingTime = 60;
+        let interval = null;
+        let isRunning = false;
+        let audioContext = null;
+        let lastSpokenNumber = -1;
+
+        const timerText = document.getElementById('timerText');
+        const progressCircle = document.querySelector('.timer-circle-progress');
+        const minutesInput = document.getElementById('minutesInput');
+        const secondsInput = document.getElementById('secondsInput');
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const normalColorInput = document.getElementById('normalColor');
+        const warningColorInput = document.getElementById('warningColor');
+        const warningSecondsInput = document.getElementById('warningSeconds');
+
+        const circumference = 2 * Math.PI * 80;
+        progressCircle.style.strokeDasharray = circumference;
+
+        function updateDisplay() {
+            const minutes = Math.floor(remainingTime / 60);
+            const seconds = remainingTime % 60;
+            timerText.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+            const progress = remainingTime / totalTime;
+            const offset = circumference * (1 - progress);
+            progressCircle.style.strokeDashoffset = offset;
+
+            const warningSeconds = parseInt(warningSecondsInput.value) || 10;
+            if (remainingTime <= warningSeconds && remainingTime > 0) {
+                progressCircle.classList.add('warning');
+                progressCircle.style.stroke = warningColorInput.value;
+            } else {
+                progressCircle.classList.remove('warning');
+                progressCircle.style.stroke = normalColorInput.value;
+            }
+        }
+
+        function triggerPulse() {
+            timerText.classList.remove('pulse');
+            void timerText.offsetWidth;
+            timerText.classList.add('pulse');
+        }
+
+        function playAlarm() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            let beepCount = 0;
+            const maxBeeps = 5;
+
+            function playBeep() {
+                if (beepCount >= maxBeeps) return;
+
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.frequency.value = 880;
+                oscillator.type = 'square';
+                gainNode.gain.value = 0.3;
+
+                oscillator.start();
+                
+                setTimeout(() => {
+                    oscillator.stop();
+                    beepCount++;
+                    if (beepCount < maxBeeps) {
+                        setTimeout(playBeep, 300);
+                    }
+                }, 400);
+            }
+
+            playBeep();
+        }
+
+        function tick() {
+            if (remainingTime > 0) {
+                remainingTime--;
+                updateDisplay();
+
+                const warningSeconds = parseInt(warningSecondsInput.value) || 10;
+                
+                if (remainingTime <= warningSeconds && remainingTime > 0) {
+                    if (remainingTime !== lastSpokenNumber) {
+                        triggerPulse();
+                        lastSpokenNumber = remainingTime;
+                    }
+                }
+
+                if (remainingTime === 0) {
+                    clearInterval(interval);
+                    isRunning = false;
+                    progressCircle.style.strokeDashoffset = circumference;
+                    progressCircle.classList.remove('warning');
+                    playAlarm();
+                    startBtn.disabled = false;
+                    pauseBtn.disabled = true;
+                }
+            }
+        }
+
+        function startTimer() {
+            if (isRunning) return;
+
+            if (remainingTime === 0) {
+                const minutes = parseInt(minutesInput.value) || 0;
+                const seconds = parseInt(secondsInput.value) || 0;
+                totalTime = minutes * 60 + seconds;
+                remainingTime = totalTime;
+            }
+
+            if (totalTime === 0) return;
+
+            isRunning = true;
+            startBtn.disabled = true;
+            pauseBtn.disabled = false;
+            lastSpokenNumber = -1;
+            updateDisplay();
+
+            interval = setInterval(tick, 1000);
+        }
+
+        function pauseTimer() {
+            if (!isRunning) return;
+
+            clearInterval(interval);
+            isRunning = false;
+            startBtn.disabled = false;
+            startBtn.textContent = '繼續';
+        }
+
+        function resetTimer() {
+            clearInterval(interval);
+            isRunning = false;
+
+            const minutes = parseInt(minutesInput.value) || 0;
+            const seconds = parseInt(secondsInput.value) || 0;
+            totalTime = minutes * 60 + seconds;
+            remainingTime = totalTime;
+
+            updateDisplay();
+            startBtn.disabled = false;
+            startBtn.textContent = '開始';
+            pauseBtn.disabled = true;
+            progressCircle.classList.remove('warning');
+            progressCircle.style.stroke = normalColorInput.value;
+            lastSpokenNumber = -1;
+        }
+
+        startBtn.addEventListener('click', startTimer);
+        pauseBtn.addEventListener('click', pauseTimer);
+        resetBtn.addEventListener('click', resetTimer);
+
+        minutesInput.addEventListener('change', () => {
+            if (!isRunning) resetTimer();
+        });
+
+        secondsInput.addEventListener('change', () => {
+            if (!isRunning) resetTimer();
+        });
+
+        normalColorInput.addEventListener('input', updateDisplay);
+        warningColorInput.addEventListener('input', updateDisplay);
+
+        resetTimer();
+        pauseBtn.disabled = true;
+    </script>
+</body>
+</html>
